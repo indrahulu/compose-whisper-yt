@@ -1,0 +1,8 @@
+services:
+  whisper-yt:
+    build: .
+    image: whisper-yt
+    volumes:
+      - ./output:/output
+    env_file:
+      - .env
