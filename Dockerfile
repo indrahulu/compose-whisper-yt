@@ -13,9 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY transcribe.py .
 
-ENV WHISPER_MODEL=medium
+ENV WHISPER_MODEL=small
 ENV WHISPER_LANGUAGE=id
 
-VOLUME /output
+VOLUME /data
 
 ENTRYPOINT ["python", "transcribe.py"]

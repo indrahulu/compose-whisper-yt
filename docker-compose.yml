@@ -1,8 +1,8 @@
 services:
-  whisper-yt:
+  app:
     build: .
     image: whisper-yt
     volumes:
-      - ./output:/output
+      - .:/data
     env_file:
       - .env

@@ -1,57 +1,41 @@
 # whisper-yt
 
-Docker image untuk membuat transkrip dari video YouTube. Menggunakan [yt-dlp](https://github.com/yt-dlp/yt-dlp) untuk download audio dan [OpenAI Whisper](https://github.com/openai/whisper) untuk transkripsi.
+Docker image untuk membuat transkrip dari video YouTube menggunakan [yt-dlp](https://github.com/yt-dlp/yt-dlp) dan [OpenAI Whisper](https://github.com/openai/whisper).
 
-## Build
+## Setup
 
 ```bash
+cp .env.example .env
 docker compose build
 ```
 
 ## Cara Pakai
 
-```bash
-docker compose run --rm whisper-yt "https://www.youtube.com/watch?v=VIDEO_ID"
-```
-
-Hasil transkrip tersimpan di folder `./output/`.
-
-### Pilih Model Whisper
-
-Semakin besar model, semakin akurat tapi lebih lambat.
-
-| Model | Parameter | Catatan |
-|-------|-----------|---------|
-| `tiny` | 39M | Paling cepat, akurasi rendah |
-| `base` | 74M | Default |
-| `small` | 244M | Keseimbangan kecepatan & akurasi |
-| `medium` | 769M | Akurasi bagus |
-| `large` | 1550M | Paling akurat, paling lambat |
+Satu video:
 
 ```bash
-docker compose run --rm -e WHISPER_MODEL=small whisper-yt "URL"
+docker compose run --rm app "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-### Tentukan Bahasa
-
-Secara default Whisper mendeteksi bahasa otomatis. Untuk menentukan secara manual:
+Banyak video (buat file `videos.txt` berisi URL, satu per baris):
 
 ```bash
-docker compose run --rm -e WHISPER_LANGUAGE=id whisper-yt "URL"
+docker compose run --rm app videos.txt
 ```
 
-Contoh kode bahasa: `id` (Indonesia), `en` (English), `ja` (Japanese).
+Hasil tersimpan di folder tempat perintah dijalankan:
 
-### Tanpa Docker Compose
-
-```bash
-docker build -t whisper-yt .
-docker run --rm -v ./output:/output whisper-yt "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+./Judul Video.mp3
+./Judul Video.txt
+./Judul Video.srt
 ```
 
-## Output
+Audio dan transkrip yang sudah ada tidak akan diproses ulang.
 
-Setiap video menghasilkan 2 file di folder `./output/`:
+## Konfigurasi (.env)
 
-- **`.txt`** — teks transkrip lengkap
-- **`.srt`** — subtitle dengan timestamp (bisa dipakai di video player)
+```env
+WHISPER_MODEL=small    # tiny, base, small, medium, large
+WHISPER_LANGUAGE=id    # kosongkan untuk auto-detect
+```
