@@ -67,6 +67,9 @@ WHISPER_LANGUAGE=id           # kosongkan untuk auto-detect
 # Kontrol download dan transkripsi
 ENABLE_DOWNLOAD=true          # true: download video, false: skip download
 ENABLE_TRANSCRIPTION=false    # true: lakukan transkripsi, false: skip transkripsi
+
+# Force download model (untuk troubleshooting)
+FORCE_DOWNLOAD_MODEL=false    # true: download ulang model meskipun sudah ada
 ```
 
 ### Penjelasan Konfigurasi:
@@ -78,6 +81,18 @@ ENABLE_TRANSCRIPTION=false    # true: lakukan transkripsi, false: skip transkrip
 - **ENABLE_TRANSCRIPTION** (default: `false`):
   - `true`: Aplikasi akan mendownload model Whisper dan melakukan transkripsi
   - `false`: Aplikasi tidak mendownload model dan tidak melakukan transkripsi
+
+- **FORCE_DOWNLOAD_MODEL** (default: `false`):
+  - `true`: Paksa download ulang model meskipun sudah ada di cache
+  - `false`: Gunakan model yang sudah ada di cache (lebih cepat)
+
+### Catatan Model Whisper:
+
+Model Whisper disimpan secara persistent di folder `./model-cache`. Whisper secara otomatis mendeteksi jika model sudah ada di cache dan akan langsung menggunakannya tanpa download ulang. Untuk menghapus cache model:
+
+```bash
+rm -rf ./model-cache
+```
 
 ### Contoh Skenario:
 

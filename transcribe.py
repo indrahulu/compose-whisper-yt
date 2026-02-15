@@ -6,6 +6,8 @@ import os
 import subprocess
 import sys
 import warnings
+import shutil
+from pathlib import Path
 
 # Suppress FP16 warning on CPU
 warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
@@ -220,10 +222,12 @@ def main():
     # Read configuration from environment variables
     enable_download = str_to_bool(os.environ.get("ENABLE_DOWNLOAD", "true"))
     enable_transcription = str_to_bool(os.environ.get("ENABLE_TRANSCRIPTION", "false"))
+    force_download_model = str_to_bool(os.environ.get("FORCE_DOWNLOAD_MODEL", "false"))
 
     print(f"Configuration:", flush=True)
     print(f"  ENABLE_DOWNLOAD: {enable_download}", flush=True)
     print(f"  ENABLE_TRANSCRIPTION: {enable_transcription}", flush=True)
+    print(f"  FORCE_DOWNLOAD_MODEL: {force_download_model}", flush=True)
 
     # Validate configuration logic
     if not enable_download and not enable_transcription:
@@ -291,8 +295,14 @@ def main():
 
     # Load Whisper model only if transcription is enabled
     model = None
-    if enable_transcription:
-        print(f"Loading Whisper model: {args.model}", flush=True)
+    if enable_transcription:        # Force re-download model if requested
+        if force_download_model:
+            cache_dir = Path.home() / ".cache" / "whisper"
+            model_file = cache_dir / f"{args.model}.pt"
+            if model_file.exists():
+                print(f"Force downloading model (removing cached: {model_file})", flush=True)
+                model_file.unlink()
+                print(f"Loading Whisper model: {args.model}", flush=True)
         try:
             model = whisper.load_model(args.model)
         except Exception as e:

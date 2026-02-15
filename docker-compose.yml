@@ -4,6 +4,7 @@ services:
     image: whisper-yt
     volumes:
       - .:/data
+      - ./model-cache:/root/.cache/whisper
     env_file:
       - .env
     deploy:
