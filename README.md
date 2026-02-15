@@ -1,6 +1,13 @@
 # whisper-yt
 
-Docker image untuk membuat transkrip dari video YouTube menggunakan [yt-dlp](https://github.com/yt-dlp/yt-dlp) dan [OpenAI Whisper](https://github.com/openai/whisper).
+Docker image untuk membuat teks transkrip dari video YouTube menggunakan *yt-dlp* dan *OpenAI Whisper*. Image akan mendownload video dari youtube menjadi file video, mengkonversi file video menjadi file audio, lalu membuat teks transkrip dari file audio.
+
+## Catatan penting
+
+- Proses build image ini akan memakan waktu yang cukup lama ketika menginstall requirements.
+- Proses yang dikerjakan oleh image ini dapat memakan waktu yang lama (tergantung kekuatan komputer yang menjalankannya), dan akan menggunakan resource cpu dan memory yang besar (walau bisa dikendalikan dengan resource limiting di compose, sesuaikan dulu sebelum mulai).
+- Sebelum melakukan build atau menggunakan image untuk transkrip, pastikan punya banyak waktu untuk menunggu sampai selesai, atau gunakan perintah untuk menjalankannya di background.
+- Hasil transkrip biasanya sangat mentah dan masih kacau. Gunakan AI lain (ChatGPT, Gemini, dll) untuk merapikan hasil transkrip.
 
 ## Setup
 
@@ -26,7 +33,7 @@ docker compose run --rm app videos.txt
 ### File video lokal:
 
 ```bash
-# Letakkan file video di folder saat ini
+# Letakkan file video di folder tempat image dijalankan
 docker compose run --rm app "video.mp4"
 ```
 
