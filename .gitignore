@@ -5,7 +5,7 @@
 *.webm
 *.avi
 *.txt
-*.srt
+!requirements.txt
 *.out
 __pycache__/
 *.pyc

@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Deno
+# Install Deno (required by yt-dlp for YouTube bot protection bypass)
 RUN curl -fsSL https://deno.land/install.sh | sh -s -- -y
 ENV PATH="/root/.deno/bin:${PATH}"
 
@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY transcribe.py .
 
-ENV WHISPER_MODEL=small
+ENV WHISPER_MODEL=tiny
 ENV WHISPER_LANGUAGE=id
 
 VOLUME /data
