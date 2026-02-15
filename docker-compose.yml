@@ -6,3 +6,10 @@ services:
       - .:/data
     env_file:
       - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 6G
+        reservations:
+          memory: 2G

@@ -61,6 +61,40 @@ Audio dan transkrip yang sudah ada tidak akan diproses ulang.
 ## Konfigurasi (.env)
 
 ```env
-WHISPER_MODEL=small    # tiny, base, small, medium, large
-WHISPER_LANGUAGE=id    # kosongkan untuk auto-detect
+WHISPER_MODEL=small           # tiny, base, small, medium, large
+WHISPER_LANGUAGE=id           # kosongkan untuk auto-detect
+
+# Kontrol download dan transkripsi
+ENABLE_DOWNLOAD=true          # true: download video, false: skip download
+ENABLE_TRANSCRIPTION=false    # true: lakukan transkripsi, false: skip transkripsi
 ```
+
+### Penjelasan Konfigurasi:
+
+- **ENABLE_DOWNLOAD** (default: `true`):
+  - `true`: Aplikasi akan mendownload video dari YouTube
+  - `false`: Aplikasi tidak mendownload video (dan tidak melakukan transcribe)
+
+- **ENABLE_TRANSCRIPTION** (default: `false`):
+  - `true`: Aplikasi akan mendownload model Whisper dan melakukan transkripsi
+  - `false`: Aplikasi tidak mendownload model dan tidak melakukan transkripsi
+
+### Contoh Skenario:
+
+1. **Hanya download tanpa transkripsi**:
+   ```env
+   ENABLE_DOWNLOAD=true
+   ENABLE_TRANSCRIPTION=false
+   ```
+
+2. **Download dan transkripsi**:
+   ```env
+   ENABLE_DOWNLOAD=true
+   ENABLE_TRANSCRIPTION=true
+   ```
+
+3. **Tidak melakukan apapun** (keduanya disabled):
+   ```env
+   ENABLE_DOWNLOAD=false
+   ENABLE_TRANSCRIPTION=false
+   ```

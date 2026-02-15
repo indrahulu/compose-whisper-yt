@@ -5,6 +5,10 @@ import argparse
 import os
 import subprocess
 import sys
+import warnings
+
+# Suppress FP16 warning on CPU
+warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
 
 try:
     import whisper
@@ -84,7 +88,7 @@ def download_audio(url: str, output_dir: str, title: str) -> str:
         "--no-playlist",
         url,
     ]
-    print(f"  Downloading audio...")
+    print(f"  Downloading audio...", flush=True)
     result = subprocess.run(cmd)
     if result.returncode != 0:
         print("  yt-dlp failed. See error above.", file=sys.stderr)
@@ -116,7 +120,7 @@ def transcribe_audio(audio_path: str, model, language: str | None, output_dir: s
         return False
 
     try:
-        print(f"  Transcribing...")
+        print(f"  Transcribing...", flush=True)
         options = {}
         if language:
             options["language"] = language
@@ -131,7 +135,7 @@ def transcribe_audio(audio_path: str, model, language: str | None, output_dir: s
         return False
 
 
-def process_video(url: str, model, language: str | None, output_dir: str) -> bool:
+def process_video(url: str, model, language: str | None, output_dir: str, enable_download: bool = True, enable_transcription: bool = True) -> bool:
     """Process a single video: download audio and transcribe.
     
     Returns True if successful, False otherwise.
@@ -144,15 +148,25 @@ def process_video(url: str, model, language: str | None, output_dir: str) -> boo
     print(f"\n[{title}]")
     print(f"  URL: {url}")
 
+    # Check if download is enabled
+    if not enable_download:
+        print(f"  Download disabled (ENABLE_DOWNLOAD=false), skipping.")
+        return False
+
     audio_path = download_audio(url, output_dir, title)
     if not audio_path:
         print(f"  Skipping transcription due to download error.")
         return False
 
+    # Check if transcription is enabled
+    if not enable_transcription:
+        print(f"  Transcription disabled (ENABLE_TRANSCRIPTION=false), skipping.")
+        return True
+
     return transcribe_audio(audio_path, model, language, output_dir, title)
 
 
-def process_local_file(filepath: str, model, language: str | None, output_dir: str) -> bool:
+def process_local_file(filepath: str, model, language: str | None, output_dir: str, enable_transcription: bool = True) -> bool:
     """Process a local video/audio file: transcribe directly without downloading.
     
     Returns True if successful, False otherwise.
@@ -170,7 +184,17 @@ def process_local_file(filepath: str, model, language: str | None, output_dir: s
     print(f"\n[{title}]")
     print(f"  Local file: {filepath}")
 
+    # Check if transcription is enabled
+    if not enable_transcription:
+        print(f"  Transcription disabled (ENABLE_TRANSCRIPTION=false), skipping.")
+        return False
+
     return transcribe_audio(filepath, model, language, output_dir, title)
+
+
+def str_to_bool(value: str) -> bool:
+    """Convert string to boolean."""
+    return value.lower() in ('true', '1', 'yes', 'on')
 
 
 def main():
@@ -192,6 +216,18 @@ def main():
         help="Output directory. Default: /data",
     )
     args = parser.parse_args()
+
+    # Read configuration from environment variables
+    enable_download = str_to_bool(os.environ.get("ENABLE_DOWNLOAD", "true"))
+    enable_transcription = str_to_bool(os.environ.get("ENABLE_TRANSCRIPTION", "false"))
+
+    print(f"Configuration:", flush=True)
+    print(f"  ENABLE_DOWNLOAD: {enable_download}", flush=True)
+    print(f"  ENABLE_TRANSCRIPTION: {enable_transcription}", flush=True)
+
+    # Validate configuration logic
+    if not enable_download and not enable_transcription:
+        print("\nWarning: Both download and transcription are disabled. No action will be performed.")
 
     # Validate model name
     if args.model not in VALID_MODELS:
@@ -253,13 +289,17 @@ def main():
         print(f"Error: No valid items found in {args.input}", file=sys.stderr)
         sys.exit(1)
 
-    # Load Whisper model once for all items
-    print(f"Loading Whisper model: {args.model}")
-    try:
-        model = whisper.load_model(args.model)
-    except Exception as e:
-        print(f"Error loading model: {e}", file=sys.stderr)
-        sys.exit(1)
+    # Load Whisper model only if transcription is enabled
+    model = None
+    if enable_transcription:
+        print(f"Loading Whisper model: {args.model}", flush=True)
+        try:
+            model = whisper.load_model(args.model)
+        except Exception as e:
+            print(f"Error loading model: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(f"Skipping model loading (ENABLE_TRANSCRIPTION=false)")
 
     # Process each item
     total = len(items)
@@ -274,7 +314,7 @@ def main():
         success = False
         if item.startswith(("http://", "https://")):
             # URL
-            success = process_video(item, model, args.language, args.output)
+            success = process_video(item, model, args.language, args.output, enable_download, enable_transcription)
         else:
             # Local file - check both absolute and relative to output dir
             if os.path.isfile(item):
@@ -283,7 +323,7 @@ def main():
                 filepath = os.path.join(args.output, item)
             
             if os.path.isfile(filepath):
-                success = process_local_file(filepath, model, args.language, args.output)
+                success = process_local_file(filepath, model, args.language, args.output, enable_transcription)
             else:
                 print(f"  Error: File not found: {item}", file=sys.stderr)
                 errors.append((item, "File not found"))
