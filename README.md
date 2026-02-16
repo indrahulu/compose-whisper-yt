@@ -2,7 +2,7 @@
 
 Docker image untuk membuat teks transkrip dari video YouTube menggunakan *yt-dlp* dan *OpenAI Whisper*.
 
-## Catatan penting
+## Sebelum menggunakan
 
 - Proses build image ini memakan waktu yang cukup lama ketika menginstall requirements.
 - **Sebelum melakukan build**, pastikan punya banyak waktu untuk menunggu sampai selesai, atau gunakan perintah untuk menjalankannya di background.
@@ -34,7 +34,7 @@ FORCE_DOWNLOAD_MODEL=false    # true: download ulang model
 # Docker resource limits
 DOCKER_CPU_LIMIT=0.75         # CPU limit (0.5, 1, 2, dst)
 DOCKER_MEMORY_LIMIT=6g        # Memory limit (512m, 1g, 2g, dst)
-DOCKER_MEMORY_RESERVATION=2g  # Memory minimum guaranteed
+DOCKER_MEMORY_RESERVATION=2g  # Memory minimum yang digaransi
 ```
 
 **Penjelasan:**
@@ -43,7 +43,7 @@ DOCKER_MEMORY_RESERVATION=2g  # Memory minimum guaranteed
 - `FORCE_DOWNLOAD_MODEL`: Paksa download ulang model meskipun sudah ada di cache
 - `DOCKER_CPU_LIMIT`: Limit penggunaan CPU untuk container
 - `DOCKER_MEMORY_LIMIT`: Limit maksimal memory untuk container
-- `DOCKER_MEMORY_RESERVATION`: Memory minimum yang dijamin untuk container
+- `DOCKER_MEMORY_RESERVATION`: Memory minimum yang digaransi untuk container
 
 ## Cara Pakai
 
