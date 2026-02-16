@@ -1,4 +1,10 @@
+__pycache__/
+*.pyc
+*.out
+.git/
 .env
+model-cache/
+
 *.mp3
 *.mp4
 *.mkv
@@ -6,7 +12,3 @@
 *.avi
 *.txt
 !requirements.txt
-*.out
-__pycache__/
-*.pyc
-model-cache/

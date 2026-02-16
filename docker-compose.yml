@@ -10,7 +10,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.75'
-          memory: 6G
+          cpus: '${DOCKER_CPU_LIMIT}'
+          memory: ${DOCKER_MEMORY_LIMIT}
         reservations:
-          memory: 2G
+          memory: ${DOCKER_MEMORY_RESERVATION}

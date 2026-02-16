@@ -1,20 +1,49 @@
 # whisper-yt
 
-Docker image untuk membuat teks transkrip dari video YouTube menggunakan *yt-dlp* dan *OpenAI Whisper*. Image akan mendownload video dari youtube menjadi file video, mengkonversi file video menjadi file audio, lalu membuat teks transkrip dari file audio.
+Docker image untuk membuat teks transkrip dari video YouTube menggunakan *yt-dlp* dan *OpenAI Whisper*.
 
 ## Catatan penting
 
-- Proses build image ini akan memakan waktu yang cukup lama ketika menginstall requirements.
-- Proses yang dikerjakan oleh image ini dapat memakan waktu yang lama (tergantung kekuatan komputer yang menjalankannya), dan akan menggunakan resource cpu dan memory yang besar (walau bisa dikendalikan dengan resource limiting di compose, sesuaikan dulu sebelum mulai).
-- Sebelum melakukan build atau menggunakan image untuk transkrip, pastikan punya banyak waktu untuk menunggu sampai selesai, atau gunakan perintah untuk menjalankannya di background.
+- Proses build image ini memakan waktu yang cukup lama ketika menginstall requirements.
+- **Sebelum melakukan build**, pastikan punya banyak waktu untuk menunggu sampai selesai, atau gunakan perintah untuk menjalankannya di background.
+- Proses pengerjaan transkrip oleh image ini memakan waktu yang cukup lama. Tergantung pada ukuran video dan kekuatan cpu yang menjalankannya.
+- Proses pengerjaan transkrip oleh image ini juga menggunakan resource yang banyak.
+- **Sebelum menjalankan proses transkrip**, sesuaikan dulu limit cpu dan memory di .env. Pastikan punya banyak waktu untuk menunggu sampai selesai, atau gunakan perintah untuk menjalankannya di background.
 - Hasil transkrip biasanya sangat mentah dan masih kacau. Gunakan AI lain (ChatGPT, Gemini, dll) untuk merapikan hasil transkrip.
 
 ## Setup
 
 ```bash
 cp .env.example .env
+# Sesuaikan konfigurasi di .env
 docker compose build
 ```
+
+## Konfigurasi (.env)
+
+```env
+# Model Whisper: tiny, base, small, medium, large
+WHISPER_MODEL=small
+WHISPER_LANGUAGE=id           # kosongkan untuk auto-detect
+
+# Kontrol download dan transkripsi
+ENABLE_DOWNLOAD=true          # true: download video, false: skip
+ENABLE_TRANSCRIPTION=false    # true: lakukan transkripsi, false: skip
+FORCE_DOWNLOAD_MODEL=false    # true: download ulang model
+
+# Docker resource limits
+DOCKER_CPU_LIMIT=0.75         # CPU limit (0.5, 1, 2, dst)
+DOCKER_MEMORY_LIMIT=6g        # Memory limit (512m, 1g, 2g, dst)
+DOCKER_MEMORY_RESERVATION=2g  # Memory minimum guaranteed
+```
+
+**Penjelasan:**
+- `ENABLE_DOWNLOAD`: Kontrol download video dari YouTube
+- `ENABLE_TRANSCRIPTION`: Kontrol proses transkripsi (akan download model Whisper jika true)
+- `FORCE_DOWNLOAD_MODEL`: Paksa download ulang model meskipun sudah ada di cache
+- `DOCKER_CPU_LIMIT`: Limit penggunaan CPU untuk container
+- `DOCKER_MEMORY_LIMIT`: Limit maksimal memory untuk container
+- `DOCKER_MEMORY_RESERVATION`: Memory minimum yang dijamin untuk container
 
 ## Cara Pakai
 
@@ -24,99 +53,24 @@ docker compose build
 docker compose run --rm app "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-### Banyak video dari YouTube (buat file `videos.txt` berisi URL, satu per baris):
+### File video lokal atau banyak video (gunakan file `videos.txt`):
 
-```bash
-docker compose run --rm app videos.txt
-```
-
-### File video lokal:
-
-```bash
-# Letakkan file video di folder tempat image dijalankan
-docker compose run --rm app "video.mp4"
-```
-
-### Campuran URL dan file lokal (dalam `videos.txt`):
-
+Buat file `videos.txt` berisi URL/file lokal, satu per baris:
 ```txt
 https://www.youtube.com/watch?v=VIDEO_ID1
 video1.mp4
 https://www.youtube.com/watch?v=VIDEO_ID2
-video2.mkv
 ```
 
+Jalankan:
 ```bash
 docker compose run --rm app videos.txt
 ```
 
-### Format file yang didukung:
+**Format yang didukung:** `.mp4`, `.mkv`, `.webm`, `.avi`, `.mp3`, `.m4a`, `.wav`, `.flac`, `.ogg`
 
-`.mp4`, `.mkv`, `.webm`, `.avi`, `.mp3`, `.m4a`, `.wav`, `.flac`, `.ogg`
+**Output:** Hasil tersimpan di folder saat ini dengan nama `Judul Video.mp3` dan `Judul Video.txt`. Audio dan transkrip yang sudah ada tidak akan diproses ulang.
 
-### Output:
+## Catatan Model Whisper
 
-Hasil tersimpan di folder tempat perintah dijalankan:
-
-```
-./Judul Video.mp3
-./Judul Video.txt
-```
-
-Audio dan transkrip yang sudah ada tidak akan diproses ulang.
-
-## Konfigurasi (.env)
-
-```env
-WHISPER_MODEL=small           # tiny, base, small, medium, large
-WHISPER_LANGUAGE=id           # kosongkan untuk auto-detect
-
-# Kontrol download dan transkripsi
-ENABLE_DOWNLOAD=true          # true: download video, false: skip download
-ENABLE_TRANSCRIPTION=false    # true: lakukan transkripsi, false: skip transkripsi
-
-# Force download model (untuk troubleshooting)
-FORCE_DOWNLOAD_MODEL=false    # true: download ulang model meskipun sudah ada
-```
-
-### Penjelasan Konfigurasi:
-
-- **ENABLE_DOWNLOAD** (default: `true`):
-  - `true`: Aplikasi akan mendownload video dari YouTube
-  - `false`: Aplikasi tidak mendownload video (dan tidak melakukan transcribe)
-
-- **ENABLE_TRANSCRIPTION** (default: `false`):
-  - `true`: Aplikasi akan mendownload model Whisper dan melakukan transkripsi
-  - `false`: Aplikasi tidak mendownload model dan tidak melakukan transkripsi
-
-- **FORCE_DOWNLOAD_MODEL** (default: `false`):
-  - `true`: Paksa download ulang model meskipun sudah ada di cache
-  - `false`: Gunakan model yang sudah ada di cache (lebih cepat)
-
-### Catatan Model Whisper:
-
-Model Whisper disimpan secara persistent di folder `./model-cache`. Whisper secara otomatis mendeteksi jika model sudah ada di cache dan akan langsung menggunakannya tanpa download ulang. Untuk menghapus cache model:
-
-```bash
-rm -rf ./model-cache
-```
-
-### Contoh Skenario:
-
-1. **Hanya download tanpa transkripsi**:
-   ```env
-   ENABLE_DOWNLOAD=true
-   ENABLE_TRANSCRIPTION=false
-   ```
-
-2. **Download dan transkripsi**:
-   ```env
-   ENABLE_DOWNLOAD=true
-   ENABLE_TRANSCRIPTION=true
-   ```
-
-3. **Tidak melakukan apapun** (keduanya disabled):
-   ```env
-   ENABLE_DOWNLOAD=false
-   ENABLE_TRANSCRIPTION=false
-   ```
+Model Whisper disimpan di folder `./model-cache`. Model yang sudah ada akan digunakan tanpa download ulang.
