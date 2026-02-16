@@ -1,16 +1,19 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: whisper-yt
+    tty: true
+    stdin_open: true
     volumes:
-      - .:/data
-      - ./model-cache:/root/.cache/whisper
+      - .:/output
     env_file:
       - .env
     deploy:
       resources:
         limits:
-          cpus: '${DOCKER_CPU_LIMIT}'
-          memory: ${DOCKER_MEMORY_LIMIT}
+          cpus: '${DOCKER_CPU_LIMIT:-0.75}'
+          memory: ${DOCKER_MEMORY_LIMIT:-4G}
         reservations:
-          memory: ${DOCKER_MEMORY_RESERVATION}
+          memory: ${DOCKER_MEMORY_RESERVATION:-1G}

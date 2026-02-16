@@ -8,6 +8,10 @@ import sys
 import warnings
 import shutil
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Suppress FP16 warning on CPU
 warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
@@ -123,7 +127,9 @@ def transcribe_audio(audio_path: str, model, language: str | None, output_dir: s
 
     try:
         print(f"  Transcribing...", flush=True)
-        options = {}
+        options = {
+            "verbose": True,  # Enable progress bar
+        }
         if language:
             options["language"] = language
         result = model.transcribe(audio_path, **options)
@@ -135,6 +141,19 @@ def transcribe_audio(audio_path: str, model, language: str | None, output_dir: s
     except Exception as e:
         print(f"  Error during transcription: {e}", file=sys.stderr)
         return False
+
+
+def cleanup_video_files(output_dir: str, title: str) -> None:
+    """Delete any video files matching the title (keeping only audio)."""
+    video_extensions = {'.mp4', '.mkv', '.webm', '.avi', '.mov', '.flv', '.wmv', '.m4v'}
+    for ext in video_extensions:
+        video_path = os.path.join(output_dir, f"{title}{ext}")
+        if os.path.exists(video_path):
+            try:
+                os.remove(video_path)
+                print(f"  Deleted video file: {video_path}")
+            except OSError as e:
+                print(f"  Warning: Could not delete {video_path}: {e}", file=sys.stderr)
 
 
 def process_video(url: str, model, language: str | None, output_dir: str, enable_download: bool = True, enable_transcription: bool = True) -> bool:
@@ -159,6 +178,9 @@ def process_video(url: str, model, language: str | None, output_dir: str, enable
     if not audio_path:
         print(f"  Skipping transcription due to download error.")
         return False
+
+    # Delete any video files after audio extraction
+    cleanup_video_files(output_dir, title)
 
     # Check if transcription is enabled
     if not enable_transcription:
@@ -201,7 +223,7 @@ def str_to_bool(value: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Transcribe YouTube videos using Whisper.")
-    parser.add_argument("input", help="YouTube URL, video file, or text file with URLs/files (one per line)")
+    parser.add_argument("input", nargs='?', default=None, help="YouTube URL, video file, or text file with URLs/files (one per line)")
     parser.add_argument(
         "-m", "--model",
         default=os.environ.get("WHISPER_MODEL", "tiny"),
@@ -214,22 +236,57 @@ def main():
     )
     parser.add_argument(
         "-o", "--output",
-        default="/data",
-        help="Output directory. Default: /data",
+        default=".",
+        help="Output directory. Default: current directory",
+    )
+    parser.add_argument(
+        "-c", "--cache",
+        default=None,
+        help="Model cache directory. Default: <output>/model-cache",
     )
     args = parser.parse_args()
+
+    # Show help if no input provided
+    if args.input is None:
+        parser.print_help()
+        sys.exit(0)
+    
+    # Create output directory
+    try:
+        os.makedirs(args.output, exist_ok=True)
+    except OSError as e:
+        print(f"Error: Failed to create output directory '{args.output}': {e}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Set cache directory with priority: argument > default (output/model-cache)
+    if args.cache is not None:
+        model_cache_dir = args.cache
+    else:
+        model_cache_dir = os.path.join(args.output, "model-cache")
+    
+    # Create cache directory
+    try:
+        os.makedirs(model_cache_dir, exist_ok=True)
+    except OSError as e:
+        print(f"Error: Failed to create cache directory '{model_cache_dir}': {e}", file=sys.stderr)
+        sys.exit(1)
 
     # Read configuration from environment variables
     enable_download = str_to_bool(os.environ.get("ENABLE_DOWNLOAD", "true"))
     enable_transcription = str_to_bool(os.environ.get("ENABLE_TRANSCRIPTION", "false"))
     force_download_model = str_to_bool(os.environ.get("FORCE_DOWNLOAD_MODEL", "false"))
-
-    print(f"Configuration:", flush=True)
+    
+    # Print all configuration
+    print("=== Configuration ===", flush=True)
+    print(f"  Model: {args.model}", flush=True)
+    print(f"  Language: {args.language}", flush=True)
+    print(f"  Output directory: {args.output}", flush=True)
+    print(f"  Cache directory: {model_cache_dir}", flush=True)
     print(f"  ENABLE_DOWNLOAD: {enable_download}", flush=True)
     print(f"  ENABLE_TRANSCRIPTION: {enable_transcription}", flush=True)
     print(f"  FORCE_DOWNLOAD_MODEL: {force_download_model}", flush=True)
-
-    # Validate configuration logic
+    print("=" * 22, flush=True)
+    
     if not enable_download and not enable_transcription:
         print("\nWarning: Both download and transcription are disabled. No action will be performed.")
 
@@ -238,8 +295,6 @@ def main():
         print(f"Error: Invalid model '{args.model}'", file=sys.stderr)
         print(f"Valid models: {', '.join(sorted(VALID_MODELS))}", file=sys.stderr)
         sys.exit(1)
-
-    os.makedirs(args.output, exist_ok=True)
 
     # Collect items to process (URLs or local files)
     items = []
@@ -295,16 +350,21 @@ def main():
 
     # Load Whisper model only if transcription is enabled
     model = None
-    if enable_transcription:        # Force re-download model if requested
+    if enable_transcription:
+        cache_dir = Path(model_cache_dir)
+        
+        # Set environment variable for torch to use our cache directory
+        os.environ["TORCH_HOME"] = model_cache_dir
+        
+        # Force re-download model if requested
         if force_download_model:
-            cache_dir = Path.home() / ".cache" / "whisper"
             model_file = cache_dir / f"{args.model}.pt"
             if model_file.exists():
                 print(f"Force downloading model (removing cached: {model_file})", flush=True)
                 model_file.unlink()
-                print(f"Loading Whisper model: {args.model}", flush=True)
         try:
-            model = whisper.load_model(args.model)
+            print(f"Loading Whisper model: {args.model}", flush=True)
+            model = whisper.load_model(args.model, download_root=model_cache_dir)
         except Exception as e:
             print(f"Error loading model: {e}", file=sys.stderr)
             sys.exit(1)

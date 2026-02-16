@@ -1,9 +1,6 @@
-__pycache__/
-*.pyc
-*.out
-.git/
-.env
-model-cache/
+/.env
+/model-cache
+/venv
 
 *.mp3
 *.mp4

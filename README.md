@@ -1,76 +1,146 @@
 # whisper-yt
 
-Docker image untuk membuat teks transkrip dari video YouTube menggunakan *yt-dlp* dan *OpenAI Whisper*.
+Docker image untuk membuat transkrip teks dari video YouTube menggunakan *yt-dlp* dan *OpenAI Whisper*.
 
-## Sebelum menggunakan
+## Sebelum Menggunakan
 
-- Proses build image ini memakan waktu yang cukup lama ketika menginstall requirements.
-- **Sebelum melakukan build**, pastikan punya banyak waktu untuk menunggu sampai selesai, atau gunakan perintah untuk menjalankannya di background.
-- Proses pengerjaan transkrip oleh image ini memakan waktu yang cukup lama. Tergantung pada ukuran video dan kekuatan cpu yang menjalankannya.
-- Proses pengerjaan transkrip oleh image ini juga menggunakan resource yang banyak.
-- **Sebelum menjalankan proses transkrip**, sesuaikan dulu limit cpu dan memory di .env. Pastikan punya banyak waktu untuk menunggu sampai selesai, atau gunakan perintah untuk menjalankannya di background.
-- Hasil transkrip biasanya sangat mentah dan masih kacau. Gunakan AI lain (ChatGPT, Gemini, dll) untuk merapikan hasil transkrip.
+- Proses build image memakan waktu lama saat menginstall dependencies
+- **Sebelum melakukan build**, pastikan tersedia cukup waktu atau jalankan di background
+- Proses transkrip memakan waktu lama—tergantung ukuran video dan performa CPU
+- Proses transkrip menggunakan resource sistem yang cukup banyak
+- **Sebelum menjalankan transkrip**, sesuaikan limit CPU dan memory di `.env`, kemudian pastikan tersedia cukup waktu atau jalankan di background
+- Hasil transkrip biasanya masih kasar dan perlu dibersihkan menggunakan AI lain (ChatGPT, Gemini, dll)
 
-## Setup
-
-```bash
-cp .env.example .env
-# Sesuaikan konfigurasi di .env
-docker compose build
-```
+---
 
 ## Konfigurasi (.env)
 
 ```env
 # Model Whisper: tiny, base, small, medium, large
 WHISPER_MODEL=small
-WHISPER_LANGUAGE=id           # kosongkan untuk auto-detect
+WHISPER_LANGUAGE=id                  # Kosongkan untuk auto-detect
 
 # Kontrol download dan transkripsi
-ENABLE_DOWNLOAD=true          # true: download video, false: skip
-ENABLE_TRANSCRIPTION=false    # true: lakukan transkripsi, false: skip
-FORCE_DOWNLOAD_MODEL=false    # true: download ulang model
+ENABLE_DOWNLOAD=true                 # true: download video, false: skip
+ENABLE_TRANSCRIPTION=false           # true: lakukan transkripsi, false: skip
+FORCE_DOWNLOAD_MODEL=false           # true: download ulang model
 
-# Docker resource limits
-DOCKER_CPU_LIMIT=0.75         # CPU limit (0.5, 1, 2, dst)
-DOCKER_MEMORY_LIMIT=6g        # Memory limit (512m, 1g, 2g, dst)
-DOCKER_MEMORY_RESERVATION=2g  # Memory minimum yang digaransi
+# Docker Compose resource limits
+DOCKER_CPU_LIMIT=0.75                # CPU limit (0.5, 1, 2, dst)
+DOCKER_MEMORY_LIMIT=6g               # Memory limit (512m, 1g, 2g, dst)
+DOCKER_MEMORY_RESERVATION=2g         # Memory minimum yang digaransi
 ```
 
 **Penjelasan:**
-- `ENABLE_DOWNLOAD`: Kontrol download video dari YouTube
-- `ENABLE_TRANSCRIPTION`: Kontrol proses transkripsi (akan download model Whisper jika true)
-- `FORCE_DOWNLOAD_MODEL`: Paksa download ulang model meskipun sudah ada di cache
-- `DOCKER_CPU_LIMIT`: Limit penggunaan CPU untuk container
-- `DOCKER_MEMORY_LIMIT`: Limit maksimal memory untuk container
+
+- `ENABLE_DOWNLOAD`: Download video dari YouTube
+- `ENABLE_TRANSCRIPTION`: Lakukan transkripsi (download model Whisper jika true)
+- `FORCE_DOWNLOAD_MODEL`: Download ulang model meskipun sudah ada di cache
+- `DOCKER_CPU_LIMIT`: Batas penggunaan CPU untuk container
+- `DOCKER_MEMORY_LIMIT`: Batas maksimal memory untuk container
 - `DOCKER_MEMORY_RESERVATION`: Memory minimum yang digaransi untuk container
+
+---
+
+## Setup
+
+```bash
+# Salin file konfigurasi dari contoh
+cp .env.example .env
+
+# Sesuaikan konfigurasi di .env
+nano .env
+
+# Setup dengan Python (Python harus sudah terinstall)
+python -m venv venv
+./venv/bin/activate
+pip install -r requirements.txt
+
+# Setup dengan Docker image (Docker harus sudah terinstall)
+docker build -t whisper-yt .
+
+# Setup dengan Docker Compose (Docker harus sudah terinstall)
+docker compose build
+```
+
+---
 
 ## Cara Pakai
 
-### Satu video dari YouTube:
+- Jika Python sudah terinstall: gunakan Python
+- Jika Docker sudah terinstall: gunakan Docker image atau Docker Compose
+- Docker image: memungkinkan resource limit custom
+- Docker Compose: menggunakan resource limit dari `.env`
 
+### Satu Video dari YouTube
+
+**Python:**
 ```bash
-docker compose run --rm app "https://www.youtube.com/watch?v=VIDEO_ID"
+python ./app/transcribe.py https://www.youtube.com/watch?v=VIDEO_ID
 ```
 
-### File video lokal atau banyak video (gunakan file `videos.txt`):
+**Docker image:**
+```bash
+docker run --rm --env-file .env -v .:/output whisper-yt https://www.youtube.com/watch?v=VIDEO_ID
+```
 
-Buat file `videos.txt` berisi URL/file lokal, satu per baris:
+**Docker Compose:**
+```bash
+docker compose run --rm app https://www.youtube.com/watch?v=VIDEO_ID
+```
+
+### Banyak File Video/Audio
+
+Buat file `videos.txt` berisi URL atau file lokal (satu per baris):
+
 ```txt
 https://www.youtube.com/watch?v=VIDEO_ID1
 video1.mp4
 https://www.youtube.com/watch?v=VIDEO_ID2
 ```
 
-Jalankan:
+**Python:**
 ```bash
-docker compose run --rm app videos.txt
+python ./app/transcribe.py videos.txt
+```
+
+**Docker image:**
+```bash
+docker run --rm -v .:/output whisper-yt "videos.txt"
+```
+
+**Docker Compose:**
+```bash
+docker compose run --rm app "videos.txt"
 ```
 
 **Format yang didukung:** `.mp4`, `.mkv`, `.webm`, `.avi`, `.mp3`, `.m4a`, `.wav`, `.flac`, `.ogg`
 
-**Output:** Hasil tersimpan di folder saat ini dengan nama `Judul Video.mp3` dan `Judul Video.txt`. Audio dan transkrip yang sudah ada tidak akan diproses ulang.
+**Output:**
 
-## Catatan Model Whisper
+Hasil disimpan di folder saat ini sebagai `Judul Video.mp3` dan `Judul Video.txt`.
+Audio dan transkrip yang sudah ada tidak akan diproses ulang.
 
-Model Whisper disimpan di folder `./model-cache`. Model yang sudah ada akan digunakan tanpa download ulang.
+---
+
+## transcribe.py
+
+Cara pakai:
+```bash
+python ./app/transcribe.py <options> <input>
+```
+
+### `input`
+
+| Argumen | Deskripsi |
+|---------|-----------|
+| `input` | YouTube URL, file video/audio lokal, atau file `.txt` berisi daftar URL/file (satu per baris). Contoh: `https://www.youtube.com/watch?v=VIDEO_ID`, `video.mp4`, atau `videos.txt` |
+
+### `options`
+
+| Argumen | Alias | Default | Deskripsi |
+|---------|-------|---------|-----------|
+| `--model` | `-m` | `tiny` (atau `WHISPER_MODEL` dari .env) | Model Whisper: `tiny`, `base`, `small`, `medium`, `large`, `large-v2`, `large-v3` |
+| `--language` | `-l` | `id` (atau `WHISPER_LANGUAGE` dari .env) | Kode bahasa audio (contoh: `en` untuk Inggris, `id` untuk Indonesia, `ja` untuk Jepang). Kosongkan untuk auto-detect |
+| `--output` | `-o` | `.` (folder saat ini) | Folder untuk menyimpan hasil audio dan transkrip |
+| `--cache` | `-c` | `<output>/model-cache` | Folder untuk menyimpan model Whisper yang ter-cache. Default: subfolder `model-cache` di dalam folder output |

@@ -16,14 +16,17 @@ ENV PATH="/root/.deno/bin:${PATH}"
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --default-timeout=300 --retries 5 --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
-COPY transcribe.py .
+COPY app/transcribe.py .
 
 ENV WHISPER_MODEL=tiny
 ENV WHISPER_LANGUAGE=id
+ENV ENABLE_DOWNLOAD=true
+ENV ENABLE_TRANSCRIPTION=false
+ENV FORCE_DOWNLOAD_MODEL=false
 ENV PYTHONUNBUFFERED=1
 
-VOLUME /data
+VOLUME /output
 
-ENTRYPOINT ["python", "transcribe.py"]
+ENTRYPOINT ["python", "transcribe.py", "-o", "/output"]
