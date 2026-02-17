@@ -27,6 +27,7 @@ ENV ENABLE_TRANSCRIPTION=false
 ENV FORCE_DOWNLOAD_MODEL=false
 ENV PYTHONUNBUFFERED=1
 
-VOLUME /output
+WORKDIR /data
+VOLUME /data
 
-ENTRYPOINT ["python", "transcribe.py", "-o", "/output"]
+ENTRYPOINT ["python", "app/transcribe.py"]

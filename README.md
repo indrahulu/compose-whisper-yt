@@ -81,11 +81,14 @@ python ./app/transcribe.py https://www.youtube.com/watch?v=VIDEO_ID
 
 **Docker image:**
 ```bash
-docker run --rm --env-file .env -v .:/output whisper-yt https://www.youtube.com/watch?v=VIDEO_ID
+# perhatikan bahwa environment dapat disesuaikan dengan menyediakan .env, bila tidak disediakan akan menggunakan default
+# perhatikan bahwa current folder di mount ke /data. workdir image adalah /data
+docker run --rm --env-file .env -v .:/data whisper-yt https://www.youtube.com/watch?v=VIDEO_ID
 ```
 
 **Docker Compose:**
 ```bash
+# spec compose sudah menyertakan mount current folder ke /data. workdir image adalah /data
 docker compose run --rm app https://www.youtube.com/watch?v=VIDEO_ID
 ```
 
@@ -106,12 +109,15 @@ python ./app/transcribe.py videos.txt
 
 **Docker image:**
 ```bash
-docker run --rm -v .:/output whisper-yt "videos.txt"
+# perhatikan bahwa environment dapat disesuaikan dengan menyediakan .env, bila tidak disediakan akan menggunakan default
+# perhatikan bahwa current folder di mount ke /data. workdir image adalah /data
+docker run --rm --env-file .env -v .:/data whisper-yt videos.txt
 ```
 
 **Docker Compose:**
 ```bash
-docker compose run --rm app "videos.txt"
+# spec compose sudah menyertakan mount current folder ke /data. workdir image adalah /data
+docker compose run --rm app videos.txt
 ```
 
 **Format yang didukung:** `.mp4`, `.mkv`, `.webm`, `.avi`, `.mp3`, `.m4a`, `.wav`, `.flac`, `.ogg`

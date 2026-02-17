@@ -7,7 +7,7 @@ services:
     tty: true
     stdin_open: true
     volumes:
-      - .:/output
+      - .:/data
     env_file:
       - .env
     deploy:
