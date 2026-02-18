@@ -28,6 +28,10 @@ SUPPORTED_EXTENSIONS = {'.mp4', '.mkv', '.webm', '.avi', '.mp3', '.m4a', '.wav',
 # Valid Whisper model names
 VALID_MODELS = {'tiny', 'base', 'small', 'medium', 'large', 'large-v2', 'large-v3'}
 
+# Chunking defaults (in seconds)
+DEFAULT_CHUNK_DURATION = 3600   # 60 minutes
+DEFAULT_CHUNK_THRESHOLD = 7200  # 120 minutes
+
 
 def sanitize_filename(name: str, max_length: int = 200) -> str:
     """Sanitize filename to prevent path traversal and filesystem issues."""
@@ -108,7 +112,46 @@ def download_audio(url: str, output_dir: str, title: str) -> str:
     return audio_path
 
 
-def transcribe_audio(audio_path: str, model, language: str | None, output_dir: str, title: str) -> bool:
+def get_audio_duration(audio_path: str) -> float:
+    """Return audio duration in seconds using ffprobe. Returns 0 on failure."""
+    cmd = [
+        "ffprobe", "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        audio_path,
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return float(result.stdout.strip())
+    except (ValueError, Exception):
+        return 0.0
+
+
+def split_audio(audio_path: str, chunk_duration: int, tmp_dir: str) -> list[str]:
+    """Split audio into chunks of chunk_duration seconds using ffmpeg.
+
+    Returns sorted list of chunk file paths.
+    """
+    os.makedirs(tmp_dir, exist_ok=True)
+    output_pattern = os.path.join(tmp_dir, "chunk_%03d.mp3")
+    cmd = [
+        "ffmpeg", "-y", "-i", audio_path,
+        "-f", "segment",
+        "-segment_time", str(chunk_duration),
+        "-c", "copy",
+        output_pattern,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"  Error splitting audio: {result.stderr}", file=sys.stderr)
+        return []
+    chunks = sorted(
+        str(p) for p in Path(tmp_dir).glob("chunk_*.mp3")
+    )
+    return chunks
+
+
+def transcribe_audio(audio_path: str, model, language: str | None, output_dir: str, title: str, chunk_duration: int = DEFAULT_CHUNK_DURATION, chunk_threshold: int = DEFAULT_CHUNK_THRESHOLD) -> bool:
     """Transcribe audio file using Whisper and save the result.
 
     Skips transcription if output file already exists.
@@ -125,17 +168,45 @@ def transcribe_audio(audio_path: str, model, language: str | None, output_dir: s
         print(f"  Error: Audio file not found: {audio_path}", file=sys.stderr)
         return False
 
+    options = {
+        "verbose": True,
+    }
+    if language:
+        options["language"] = language
+
     try:
         print(f"  Transcribing...", flush=True)
-        options = {
-            "verbose": True,  # Enable progress bar
-        }
-        if language:
-            options["language"] = language
-        result = model.transcribe(audio_path, **options)
+        duration = get_audio_duration(audio_path)
+
+        if duration > chunk_threshold:
+            # --- Chunked transcription ---
+            minutes = int(duration // 60)
+            print(f"  Audio duration: {minutes} min — splitting into {chunk_duration // 60}-minute chunks...", flush=True)
+            tmp_dir = os.path.join(output_dir, f".chunks_{title}")
+            chunks = split_audio(audio_path, chunk_duration, tmp_dir)
+            if not chunks:
+                print(f"  Error: Failed to split audio.", file=sys.stderr)
+                return False
+
+            print(f"  Total chunks: {len(chunks)}", flush=True)
+            texts = []
+            try:
+                for i, chunk_path in enumerate(chunks, start=1):
+                    print(f"  Chunk {i}/{len(chunks)}: {os.path.basename(chunk_path)}", flush=True)
+                    result = model.transcribe(chunk_path, **options)
+                    texts.append(result["text"].strip())
+            finally:
+                # Always clean up temp chunks
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+
+            full_text = " ".join(texts)
+        else:
+            # --- Normal transcription ---
+            result = model.transcribe(audio_path, **options)
+            full_text = result["text"]
 
         with open(txt_path, "w", encoding="utf-8") as f:
-            f.write(result["text"])
+            f.write(full_text)
         print(f"  Saved: {txt_path}")
         return True
     except Exception as e:
@@ -156,7 +227,7 @@ def cleanup_video_files(output_dir: str, title: str) -> None:
                 print(f"  Warning: Could not delete {video_path}: {e}", file=sys.stderr)
 
 
-def process_video(url: str, model, language: str | None, output_dir: str, enable_download: bool = True, enable_transcription: bool = True) -> bool:
+def process_video(url: str, model, language: str | None, output_dir: str, enable_download: bool = True, enable_transcription: bool = True, chunk_duration: int = DEFAULT_CHUNK_DURATION, chunk_threshold: int = DEFAULT_CHUNK_THRESHOLD) -> bool:
     """Process a single video: download audio and transcribe.
     
     Returns True if successful, False otherwise.
@@ -187,10 +258,10 @@ def process_video(url: str, model, language: str | None, output_dir: str, enable
         print(f"  Transcription disabled (ENABLE_TRANSCRIPTION=false), skipping.")
         return True
 
-    return transcribe_audio(audio_path, model, language, output_dir, title)
+    return transcribe_audio(audio_path, model, language, output_dir, title, chunk_duration, chunk_threshold)
 
 
-def process_local_file(filepath: str, model, language: str | None, output_dir: str, enable_transcription: bool = True) -> bool:
+def process_local_file(filepath: str, model, language: str | None, output_dir: str, enable_transcription: bool = True, chunk_duration: int = DEFAULT_CHUNK_DURATION, chunk_threshold: int = DEFAULT_CHUNK_THRESHOLD) -> bool:
     """Process a local video/audio file: transcribe directly without downloading.
     
     Returns True if successful, False otherwise.
@@ -213,7 +284,7 @@ def process_local_file(filepath: str, model, language: str | None, output_dir: s
         print(f"  Transcription disabled (ENABLE_TRANSCRIPTION=false), skipping.")
         return False
 
-    return transcribe_audio(filepath, model, language, output_dir, title)
+    return transcribe_audio(filepath, model, language, output_dir, title, chunk_duration, chunk_threshold)
 
 
 def str_to_bool(value: str) -> bool:
@@ -275,7 +346,9 @@ def main():
     enable_download = str_to_bool(os.environ.get("ENABLE_DOWNLOAD", "true"))
     enable_transcription = str_to_bool(os.environ.get("ENABLE_TRANSCRIPTION", "false"))
     force_download_model = str_to_bool(os.environ.get("FORCE_DOWNLOAD_MODEL", "false"))
-    
+    chunk_duration = int(os.environ.get("CHUNK_DURATION", str(DEFAULT_CHUNK_DURATION)))
+    chunk_threshold = int(os.environ.get("CHUNK_THRESHOLD", str(DEFAULT_CHUNK_THRESHOLD)))
+
     # Print all configuration
     print("=== Configuration ===", flush=True)
     print(f"  Model: {args.model}", flush=True)
@@ -285,6 +358,8 @@ def main():
     print(f"  ENABLE_DOWNLOAD: {enable_download}", flush=True)
     print(f"  ENABLE_TRANSCRIPTION: {enable_transcription}", flush=True)
     print(f"  FORCE_DOWNLOAD_MODEL: {force_download_model}", flush=True)
+    print(f"  CHUNK_DURATION: {chunk_duration // 60} min", flush=True)
+    print(f"  CHUNK_THRESHOLD: {chunk_threshold // 60} min", flush=True)
     print("=" * 22, flush=True)
     
     if not enable_download and not enable_transcription:
@@ -384,7 +459,7 @@ def main():
         success = False
         if item.startswith(("http://", "https://")):
             # URL
-            success = process_video(item, model, args.language, args.output, enable_download, enable_transcription)
+            success = process_video(item, model, args.language, args.output, enable_download, enable_transcription, chunk_duration, chunk_threshold)
         else:
             # Local file - check both absolute and relative to output dir
             if os.path.isfile(item):
@@ -393,7 +468,7 @@ def main():
                 filepath = os.path.join(args.output, item)
             
             if os.path.isfile(filepath):
-                success = process_local_file(filepath, model, args.language, args.output, enable_transcription)
+                success = process_local_file(filepath, model, args.language, args.output, enable_transcription, chunk_duration, chunk_threshold)
             else:
                 print(f"  Error: File not found: {item}", file=sys.stderr)
                 errors.append((item, "File not found"))

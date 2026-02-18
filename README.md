@@ -10,6 +10,12 @@ Docker image untuk membuat transkrip teks dari video YouTube menggunakan *yt-dlp
 - Proses transkrip menggunakan resource sistem yang cukup banyak
 - **Sebelum menjalankan transkrip**, sesuaikan limit CPU dan memory di `.env`, kemudian pastikan tersedia cukup waktu atau jalankan di background
 - Hasil transkrip biasanya masih kasar dan perlu dibersihkan menggunakan AI lain (ChatGPT, Gemini, dll)
+- Kebutuhan RAM:
+  - model `tiny` = 1GB
+  - model `base` = 1GB
+  - model `small` = 2GB
+  - model `medium` = 5GB
+  - model `large` = 10GB
 
 ---
 
