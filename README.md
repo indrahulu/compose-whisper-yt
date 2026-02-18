@@ -44,6 +44,8 @@ DOCKER_MEMORY_RESERVATION=2g         # Memory minimum yang digaransi
 
 ## Setup
 
+**Linux:**
+
 ```bash
 # Salin file konfigurasi dari contoh
 cp .env.example .env
@@ -53,7 +55,28 @@ nano .env
 
 # Setup dengan Python (Python harus sudah terinstall)
 python -m venv venv
-./venv/bin/activate
+source ./venv/bin/activate
+pip install -r requirements.txt
+
+# Setup dengan Docker image (Docker harus sudah terinstall)
+docker build -t whisper-yt .
+
+# Setup dengan Docker Compose (Docker harus sudah terinstall)
+docker compose build
+```
+
+**Windows:**
+
+```ps
+# Salin file konfigurasi dari contoh
+copy .env.example .env
+
+# Sesuaikan konfigurasi di .env
+notepad .env
+
+# Setup dengan Python (Python harus sudah terinstall)
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
 # Setup dengan Docker image (Docker harus sudah terinstall)
