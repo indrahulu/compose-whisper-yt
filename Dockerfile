@@ -30,4 +30,4 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /data
 VOLUME /data
 
-ENTRYPOINT ["python", "app/transcribe.py"]
+ENTRYPOINT ["python", "/app/transcribe.py"]
